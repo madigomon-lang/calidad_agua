@@ -3,134 +3,100 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-# Configuración de la página
-st.set_page_config(
-    page_title="Water Quality Analytics",
-    page_icon="💧",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Configuración de la interfaz
+st.set_page_config(page_title="Water Quality Analytics", page_icon="💧", layout="wide")
 
-# Estilos personalizados (CSS)
+# Estilos visuales
 st.markdown("""
     <style>
-    .main {
-        background-color: #f5f7f9;
-    }
-    .stMetric {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
+    .main { background-color: #f8f9fa; }
+    .stMetric { background-color: #ffffff; padding: 20px; border-radius: 10px; border: 1px solid #e0e0e0; }
     </style>
     """, unsafe_allow_html=True)
 
-# Simulación de carga de datos (Dataset: Water Potability)
 @st.cache_data
 def load_data():
-    # En producción, asegúrate de que el CSV esté en la raíz o usa la API de Kaggle
-    # URL de ejemplo si el archivo se llama water_potability.csv
     try:
-        df = pd.read_csv('water_potability.csv')
+        # Cargamos el archivo con el nombre que indicaste
+        df = pd.read_csv('Watera.csv')
+        
+        # Limpieza: Eliminamos valores nulos para evitar errores en cálculos estadísticos
+        df = df.dropna()
         return df
-    except:
-        # Generación de datos sintéticos en caso de que no encuentre el archivo localmente para la demo
-        import numpy as np
-        data = pd.DataFrame(
-            np.random.randn(100, 4),
-            columns=['ph', 'Sulfate', 'Chloramines', 'Potability']
-        )
-        data['Potability'] = np.random.choice([0, 1], size=100)
-        return data
+    except FileNotFoundError:
+        st.error("⚠️ El archivo 'Watera.csv' no se encuentra en el repositorio.")
+        return None
 
 df = load_data()
 
-# Navegación
-st.sidebar.title("Navegación")
-page = st.sidebar.radio("Ir a:", ["Inicio / Landing Page", "Dashboard Analítico"])
+if df is not None:
+    # Barra lateral de navegación
+    st.sidebar.title("💧 Menú de Control")
+    opcion = st.sidebar.selectbox("Seleccione una sección:", ["Landing Page", "Dashboard de Calidad"])
 
-if page == "Inicio / Landing Page":
-    st.title("💧 Análisis de Calidad y Potabilidad del Agua")
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.markdown("""
-        ### Sobre el Proyecto
-        Este sistema permite monitorear y analizar los parámetros críticos que definen si el agua es apta para el consumo humano. 
-        Utilizando técnicas de **Análisis Exploratorio de Datos (EDA)**, transformamos datos crudos en decisiones informadas.
-
-        **Objetivos del Panel:**
-        * Visualizar la distribución de métricas químicas (pH, Sulfatos, Cloro).
-        * Identificar correlaciones entre variables.
-        * Evaluar el porcentaje de potabilidad en las muestras recolectadas.
-        """)
+    if opcion == "Landing Page":
+        st.title("Sistema de Análisis de Potabilidad")
+        col1, col2 = st.columns([2, 1])
         
-    with col2:
-        st.image("https://images.unsplash.com/photo-1548932813-71000a65fb25?auto=format&fit=crop&w=400", caption="Recursos Hídricos")
+        with col1:
+            st.write("""
+            ### Bienvenida
+            Este dashboard profesional procesa datos fisicoquímicos para determinar la calidad del agua. 
+            Utilizamos indicadores críticos como el pH, la dureza y la concentración de sólidos para evaluar la seguridad del consumo.
+            
+            **Estatus del Dataset:**
+            - **Archivo:** Watera.csv
+            - **Registros procesados:** {:,}
+            """.format(len(df)))
+            
+            st.info("La potabilidad se define como: **1 (Apta)** y **0 (No Apta)**.")
 
-    st.divider()
-    st.subheader("Parámetros Analizados")
-    
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Muestras Totales", len(df))
-    m2.metric("Promedio pH", round(df['ph'].mean(), 2))
-    m3.metric("Potabilidad (%)", f"{round(df['Potability'].mean()*100, 2)}%")
+        with col2:
+            # Resumen rápido de métricas
+            potabilidad_promedio = (df['Potability'].mean() * 100)
+            st.metric("Índice de Potabilidad", f"{potabilidad_promedio:.1f}%")
 
-elif page == "Dashboard Analítico":
-    st.title("📊 Panel de Control de Datos")
-    
-    # Filtros rápidos
-    st.sidebar.subheader("Filtros")
-    potabilidad_filter = st.sidebar.multiselect("Estado de Potabilidad", 
-                                              options=df['Potability'].unique(), 
-                                              default=df['Potability'].unique())
-    
-    filtered_df = df[df['Potability'].isin(potabilidad_filter)]
-
-    # Layout de Gráficos
-    row1_1, row1_2 = st.columns(2)
-    
-    with row1_1:
-        st.write("#### Distribución del pH")
-        fig_hist = px.histogram(filtered_df, x="ph", color="Potability", 
-                               marginal="box", nbins=30, color_discrete_sequence=['#ef553b', '#636efa'])
-        st.plotly_chart(fig_hist, use_container_width=True)
-
-    with row1_2:
-        st.write("#### Relación Sulfatos vs Cloraminas")
-        fig_scatter = px.scatter(filtered_df, x="Sulfate", y="Chloramines", 
-                                color="Potability", opacity=0.6)
-        st.plotly_chart(fig_scatter, use_container_width=True)
-
-    st.write("#### Vista Previa del Dataset")
-    st.dataframe(filtered_df.head(10), use_container_width=True)
-
-# Nueva Sección: Matriz de Correlación
-    st.divider()
-    st.subheader("🔍 Análisis de Correlación de Variables")
-    
-    col_corr, col_text = st.columns([2, 1])
-    
-    with col_corr:
-        # Calculamos la correlación solo de las columnas numéricas principales
-        corr = filtered_df[['ph', 'Sulfate', 'Chloramines', 'Potability']].corr()
+    else:
+        st.title("📊 Panel Analítico de Parámetros")
         
-        # Creamos el Heatmap con Plotly
-        fig_corr = px.imshow(corr, 
-                             text_auto=True, 
-                             aspect="auto", 
-                             color_continuous_scale='RdBu_r',
-                             labels=dict(color="Correlación"))
+        # Filtros dinámicos en la barra lateral
+        st.sidebar.subheader("Filtros de Datos")
+        target = st.sidebar.radio("Ver muestras:", ["Todas", "Potables", "No Potables"])
+        
+        if target == "Potables":
+            display_df = df[df['Potability'] == 1]
+        elif target == "No Potables":
+            display_df = df[df['Potability'] == 0]
+        else:
+            display_df = df
+
+        # Fila 1: Indicadores clave
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("pH Promedio", round(display_df['ph'].mean(), 2))
+        m2.metric("Sólidos (TDS)", round(display_df['Solids'].mean(), 1))
+        m3.metric("Sulfatos", round(display_df['Sulfate'].mean(), 2))
+        m4.metric("Cloraminas", round(display_df['Chloramines'].mean(), 2))
+
+        # Fila 2: Gráficos principales
+        col_a, col_b = st.columns(2)
+        
+        with col_a:
+            st.markdown("#### Distribución de pH por Potabilidad")
+            fig1 = px.histogram(display_df, x="ph", color="Potability", 
+                               marginal="violin", nbins=50,
+                               color_discrete_map={0: "#EF553B", 1: "#636EFA"})
+            st.plotly_chart(fig1, use_container_width=True)
+
+        with col_b:
+            st.markdown("#### Correlación: Sulfatos vs Cloraminas")
+            fig2 = px.scatter(display_df, x="Sulfate", y="Chloramines", 
+                             color="Potability", size="ph", hover_data=['Hardness'],
+                             color_continuous_scale="RdBu")
+            st.plotly_chart(fig2, use_container_width=True)
+
+        # Fila 3: Matriz de Correlación
+        st.divider()
+        st.subheader("🔍 Matriz de Correlación")
+        corr = display_df.corr()
+        fig_corr = px.imshow(corr, text_auto=True, color_continuous_scale='Blues')
         st.plotly_chart(fig_corr, use_container_width=True)
-        
-    with col_text:
-        st.markdown("""
-        **¿Cómo leer este gráfico?**
-        * **1.0**: Correlación perfecta (una variable sube igual que la otra).
-        * **0.0**: No hay relación alguna entre las variables.
-        * **Valores Negativos**: Cuando una variable sube, la otra tiende a bajar.
-        
-        *Nota: En la calidad del agua, las correlaciones suelen ser bajas, lo que indica que la potabilidad depende de un equilibrio complejo de todos los factores, no de uno solo.*
-        """)
