@@ -106,3 +106,31 @@ elif page == "Dashboard Analítico":
 
     st.write("#### Vista Previa del Dataset")
     st.dataframe(filtered_df.head(10), use_container_width=True)
+
+# Nueva Sección: Matriz de Correlación
+    st.divider()
+    st.subheader("🔍 Análisis de Correlación de Variables")
+    
+    col_corr, col_text = st.columns([2, 1])
+    
+    with col_corr:
+        # Calculamos la correlación solo de las columnas numéricas principales
+        corr = filtered_df[['ph', 'Sulfate', 'Chloramines', 'Potability']].corr()
+        
+        # Creamos el Heatmap con Plotly
+        fig_corr = px.imshow(corr, 
+                             text_auto=True, 
+                             aspect="auto", 
+                             color_continuous_scale='RdBu_r',
+                             labels=dict(color="Correlación"))
+        st.plotly_chart(fig_corr, use_container_width=True)
+        
+    with col_text:
+        st.markdown("""
+        **¿Cómo leer este gráfico?**
+        * **1.0**: Correlación perfecta (una variable sube igual que la otra).
+        * **0.0**: No hay relación alguna entre las variables.
+        * **Valores Negativos**: Cuando una variable sube, la otra tiende a bajar.
+        
+        *Nota: En la calidad del agua, las correlaciones suelen ser bajas, lo que indica que la potabilidad depende de un equilibrio complejo de todos los factores, no de uno solo.*
+        """)
