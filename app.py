@@ -1,136 +1,120 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 
-# Configuración de la interfaz
-st.set_page_config(page_title="Water Quality Analytics", page_icon="💧", layout="wide")
+# --- CONFIGURACIÓN DE LA PÁGINA ---
+st.set_page_config(
+    page_title="Water Analytics Pro",
+    page_icon="💧",
+    layout="wide"
+)
 
-# Estilos visuales
-st.markdown("""
-    <style>
-    .main { background-color: #f8f9fa; }
-    .stMetric { background-color: #ffffff; padding: 20px; border-radius: 10px; border: 1px solid #e0e0e0; }
-    </style>
-    """, unsafe_allow_html=True)
-
+# --- CARGA DE DATOS INTELIGENTE ---
 @st.cache_data
 def load_data():
     try:
-        # Cargamos el archivo con el nombre que indicaste
-        df = pd.read_csv('Watera.csv')
-        
-        # Limpieza: Eliminamos valores nulos para evitar errores en cálculos estadísticos
-        df = df.dropna()
-        return df
-    except FileNotFoundError:
-        st.error("⚠️ El archivo 'Watera.csv' no se encuentra en el repositorio.")
-        return None
-@st.cache_data
-def load_data():
-    try:
-        # Intentamos leer con coma, si falla probamos con punto y coma
+        # Intentar leer con coma o punto y coma (común en Excel)
         try:
             df = pd.read_csv('Watera.csv', sep=',')
-            if len(df.columns) <= 1: # Si solo lee una columna, el separador está mal
-                df = pd.read_csv('Watera.csv', sep=';')
+            if len(df.columns) <= 1: df = pd.read_csv('Watera.csv', sep=';')
         except:
             df = pd.read_csv('Watera.csv', sep=';')
 
-        # LIMPIEZA DE NOMBRES: Eliminamos espacios en blanco alrededor de los nombres de columnas
+        # Limpiar espacios en los nombres de columnas
         df.columns = df.columns.str.strip()
+
+        # Diccionario de Mapeo: Traduce nombres de columnas automáticamente
+        mapeo = {
+            'ph': ['ph', 'PH', 'pH', 'Ph', 'Valor_ph'],
+            'Solids': ['Solids', 'Sólidos', 'Solidos', 'TDS', 'Total_Solids'],
+            'Sulfate': ['Sulfate', 'Sulfatos', 'Sulfato'],
+            'Chloramines': ['Chloramines', 'Cloraminas', 'Cloramina'],
+            'Potability': ['Potability', 'Potabilidad', 'Target', 'Apta', 'Potable']
+        }
+
+        for estandar, variantes in mapeo.items():
+            for v in variantes:
+                if v in df.columns:
+                    df = df.rename(columns={v: estandar})
+                    break
         
-        # BUSCADOR INTELIGENTE DE COLUMNA:
-        # Si no existe 'Potability', buscamos algo que se le parezca
-        posibles_nombres = ['Potability', 'potability', 'Potabilidad', 'Target']
-        for nombre in posibles_nombres:
-            if nombre in df.columns:
-                df = df.rename(columns={nombre: 'Potability'})
-                break
-        
+        # Eliminar filas vacías para evitar errores en gráficos
         df = df.dropna()
         return df
     except Exception as e:
-        st.error(f"Error al cargar el dataset: {e}")
+        st.error(f"Error crítico al leer 'Watera.csv': {e}")
         return None
 
-df = load_data()
-
-# Verificación de seguridad antes de calcular
-if df is not None:
-    if 'Potability' not in df.columns:
-        st.error(f"❌ No encontré la columna de Potabilidad. Las columnas disponibles son: {list(df.columns)}")
-        st.stop() # Detiene la app para que no salga el error rojo feo
+# --- EJECUCIÓN ---
 df = load_data()
 
 if df is not None:
-    # Barra lateral de navegación
-    st.sidebar.title("💧 Menú de Control")
-    opcion = st.sidebar.selectbox("Seleccione una sección:", ["Landing Page", "Dashboard de Calidad"])
+    # Verificación de columnas mínimas
+    columnas_necesarias = ['ph', 'Solids', 'Sulfate', 'Chloramines', 'Potability']
+    faltantes = [c for c in columnas_necesarias if c not in df.columns]
+    
+    if faltantes:
+        st.error(f"⚠️ Faltan columnas: {faltantes}")
+        st.info(f"Columnas en tu archivo: {list(df.columns)}")
+        st.stop()
 
-    if opcion == "Landing Page":
-        st.title("Sistema de Análisis de Potabilidad")
+    # --- NAVEGACIÓN ---
+    st.sidebar.title("💧 Control de Panel")
+    menu = st.sidebar.radio("Ir a:", ["Inicio", "Análisis Exploratorio"])
+
+    if menu == "Inicio":
+        st.title("💧 Calidad del Agua: Análisis Profesional")
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.write("""
-            ### Bienvenida
-            Este dashboard profesional procesa datos fisicoquímicos para determinar la calidad del agua. 
-            Utilizamos indicadores críticos como el pH, la dureza y la concentración de sólidos para evaluar la seguridad del consumo.
+            st.markdown("""
+            ### Objetivo del Proyecto
+            Este tablero permite evaluar la potabilidad del agua mediante el análisis de parámetros químicos.
+            - **Potabilidad 1**: El agua cumple con los estándares.
+            - **Potabilidad 0**: El agua no es segura para consumo.
             
-            **Estatus del Dataset:**
-            - **Archivo:** Watera.csv
-            - **Registros procesados:** {:,}
+            **Métricas del Archivo:**
+            - Total de registros analizados: `{}`
             """.format(len(df)))
             
-            st.info("La potabilidad se define como: **1 (Apta)** y **0 (No Apta)**.")
-
         with col2:
-            # Resumen rápido de métricas
-            potabilidad_promedio = (df['Potability'].mean() * 100)
-            st.metric("Índice de Potabilidad", f"{potabilidad_promedio:.1f}%")
+            st.metric("Tasa de Potabilidad", f"{round(df['Potability'].mean()*100, 2)}%")
 
     else:
-        st.title("📊 Panel Analítico de Parámetros")
+        st.title("📊 Panel Analítico")
         
-        # Filtros dinámicos en la barra lateral
+        # Filtros
         st.sidebar.subheader("Filtros de Datos")
-        target = st.sidebar.radio("Ver muestras:", ["Todas", "Potables", "No Potables"])
+        filtro_pot = st.sidebar.multiselect("Filtrar por Potabilidad:", 
+                                           options=df['Potability'].unique(), 
+                                           default=df['Potability'].unique())
         
-        if target == "Potables":
-            display_df = df[df['Potability'] == 1]
-        elif target == "No Potables":
-            display_df = df[df['Potability'] == 0]
-        else:
-            display_df = df
+        df_filtrado = df[df['Potability'].isin(filtro_pot)]
 
-        # Fila 1: Indicadores clave
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("pH Promedio", round(display_df['ph'].mean(), 2))
-        m2.metric("Sólidos (TDS)", round(display_df['Solids'].mean(), 1))
-        m3.metric("Sulfatos", round(display_df['Sulfate'].mean(), 2))
-        m4.metric("Cloraminas", round(display_df['Chloramines'].mean(), 2))
+        # Métricas principales
+        m1, m2, m3 = st.columns(3)
+        m1.metric("pH Promedio", round(df_filtrado['ph'].mean(), 2))
+        m2.metric("Sólidos (TDS)", f"{round(df_filtrado['Solids'].mean(), 0)}")
+        m3.metric("Cloraminas", round(df_filtrado['Chloramines'].mean(), 2))
 
-        # Fila 2: Gráficos principales
-        col_a, col_b = st.columns(2)
+        # Visualizaciones
+        row1_1, row1_2 = st.columns(2)
         
-        with col_a:
-            st.markdown("#### Distribución de pH por Potabilidad")
-            fig1 = px.histogram(display_df, x="ph", color="Potability", 
-                               marginal="violin", nbins=50,
-                               color_discrete_map={0: "#EF553B", 1: "#636EFA"})
+        with row1_1:
+            st.write("#### Distribución de Sulfatos")
+            fig1 = px.histogram(df_filtrado, x="Sulfate", color="Potability", 
+                               marginal="box", color_discrete_sequence=px.colors.qualitative.Safe)
             st.plotly_chart(fig1, use_container_width=True)
 
-        with col_b:
-            st.markdown("#### Correlación: Sulfatos vs Cloraminas")
-            fig2 = px.scatter(display_df, x="Sulfate", y="Chloramines", 
-                             color="Potability", size="ph", hover_data=['Hardness'],
-                             color_continuous_scale="RdBu")
+        with row1_2:
+            st.write("#### Relación pH vs Sólidos")
+            fig2 = px.scatter(df_filtrado, x="ph", y="Solids", color="Potability", 
+                              opacity=0.5, template="plotly_white")
             st.plotly_chart(fig2, use_container_width=True)
 
-        # Fila 3: Matriz de Correlación
+        # Matriz de Correlación
         st.divider()
         st.subheader("🔍 Matriz de Correlación")
-        corr = display_df.corr()
-        fig_corr = px.imshow(corr, text_auto=True, color_continuous_scale='Blues')
+        corr = df_filtrado[['ph', 'Solids', 'Sulfate', 'Chloramines', 'Potability']].corr()
+        fig_corr = px.imshow(corr, text_auto=True, color_continuous_scale='RdBu_r')
         st.plotly_chart(fig_corr, use_container_width=True)
