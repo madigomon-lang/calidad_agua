@@ -26,7 +26,41 @@ def load_data():
     except FileNotFoundError:
         st.error("⚠️ El archivo 'Watera.csv' no se encuentra en el repositorio.")
         return None
+@st.cache_data
+def load_data():
+    try:
+        # Intentamos leer con coma, si falla probamos con punto y coma
+        try:
+            df = pd.read_csv('Watera.csv', sep=',')
+            if len(df.columns) <= 1: # Si solo lee una columna, el separador está mal
+                df = pd.read_csv('Watera.csv', sep=';')
+        except:
+            df = pd.read_csv('Watera.csv', sep=';')
 
+        # LIMPIEZA DE NOMBRES: Eliminamos espacios en blanco alrededor de los nombres de columnas
+        df.columns = df.columns.str.strip()
+        
+        # BUSCADOR INTELIGENTE DE COLUMNA:
+        # Si no existe 'Potability', buscamos algo que se le parezca
+        posibles_nombres = ['Potability', 'potability', 'Potabilidad', 'Target']
+        for nombre in posibles_nombres:
+            if nombre in df.columns:
+                df = df.rename(columns={nombre: 'Potability'})
+                break
+        
+        df = df.dropna()
+        return df
+    except Exception as e:
+        st.error(f"Error al cargar el dataset: {e}")
+        return None
+
+df = load_data()
+
+# Verificación de seguridad antes de calcular
+if df is not None:
+    if 'Potability' not in df.columns:
+        st.error(f"❌ No encontré la columna de Potabilidad. Las columnas disponibles son: {list(df.columns)}")
+        st.stop() # Detiene la app para que no salga el error rojo feo
 df = load_data()
 
 if df is not None:
